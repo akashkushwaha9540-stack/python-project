@@ -1,0 +1,98 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import requests
+import threading
+
+# ---------------------------
+# URL Checking Function
+# ---------------------------
+
+def check_single_url(url):
+    try:
+        response = requests.get(url, timeout=8, allow_redirects=False)
+        code = response.status_code
+
+        if code == 200:
+            return "Working"
+        elif code in [301, 302]:
+            return "Redirect"
+        else:
+            return f"Error {code}"
+
+    except Exception:
+        return "Failed"
+
+
+# ---------------------------
+# Main Worker Function
+# ---------------------------
+
+def start_check():
+    thread = threading.Thread(target=check_links)
+    thread.start()
+
+
+def check_links():
+    result_box.delete("1.0", tk.END)
+    urls = input_box.get("1.0", tk.END).strip().split("\n")
+
+    if not urls or urls == [""]:
+        messagebox.showerror("Error", "Please enter URLs!")
+        return
+
+    total = len(urls)
+    broken_links = []
+    redirect_links = []
+
+    progress["maximum"] = total
+
+    for i, url in enumerate(urls, start=1):
+        status = check_single_url(url)
+
+        # UI updates
+        result_box.insert(tk.END, f"{url} → {status}\n")
+        progress["value"] = i
+        count_label.config(text=f"Checked: {i}/{total}")
+        root.update_idletasks()
+
+        if status != "Working":
+            broken_links.append(url)
+        if status == "Redirect":
+            redirect_links.append(url)
+
+    # Summary
+    result_box.insert(tk.END, "\n----- Summary -----\n")
+    result_box.insert(tk.END, f"Total URLs: {total}\n")
+    result_box.insert(tk.END, f"Working: {total - len(broken_links)}\n")
+    result_box.insert(tk.END, f"Broken: {len(broken_links)}\n")
+    result_box.insert(tk.END, f"Redirects: {len(redirect_links)}\n")
+
+
+# ---------------------------
+# UI Layout
+# ---------------------------
+
+root = tk.Tk()
+root.title("URL Checker Tool")
+root.geometry("820x600")
+
+tk.Label(root, text="Paste URLs (one per line):", font=("Arial", 12)).pack()
+
+input_box = tk.Text(root, height=10, width=100, font=("Arial", 10))
+input_box.pack(pady=5)
+
+check_button = tk.Button(root, text="Check Links", font=("Arial", 13), bg="blue", fg="white", command=start_check)
+check_button.pack(pady=10)
+
+progress = ttk.Progressbar(root, length=700)
+progress.pack(pady=5)
+
+count_label = tk.Label(root, text="Checked: 0/0", font=("Arial", 11))
+count_label.pack()
+
+tk.Label(root, text="Results:", font=("Arial", 12)).pack(pady=5)
+
+result_box = tk.Text(root, height=18, width=100, font=("Arial", 10), fg="black")
+result_box.pack(pady=5)
+
+root.mainloop()
